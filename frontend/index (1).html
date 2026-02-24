@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CGPA Predictor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+
+<canvas id="stars-canvas"></canvas>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<div class="card">
+  <div class="header">
+    <div class="badge">✦ AI Powered</div>
+    <h1>CGPA Predictor</h1>
+    <p class="subtitle">Forecast your academic performance with precision</p>
+  </div>
+
+  <!-- Year Tabs -->
+  <div class="year-tabs" role="tablist">
+    <button class="year-tab active" role="tab" onclick="selectYear(2, this)">2nd Year</button>
+    <button class="year-tab" role="tab" onclick="selectYear(3, this)">3rd Year</button>
+    <button class="year-tab" role="tab" onclick="selectYear(4, this)">4th Year</button>
+  </div>
+  <input type="hidden" id="year" value="2"/>
+
+  <!-- CGPA Inputs -->
+  <div class="cgpa-fields">
+    <div class="cgpa-field" id="wrap100">
+      <label><span class="cgpa-dot"></span>1st Year CGPA</label>
+      <input id="CGPA100" type="number" step="0.01" min="0" max="10" placeholder="e.g. 8.5"/>
+    </div>
+    <div class="cgpa-field" id="wrap200" style="display:none">
+      <label><span class="cgpa-dot" style="background:var(--accent2)"></span>2nd Year CGPA</label>
+      <input id="CGPA200" type="number" step="0.01" min="0" max="10" placeholder="e.g. 8.2"/>
+    </div>
+    <div class="cgpa-field" id="wrap300" style="display:none">
+      <label><span class="cgpa-dot" style="background:var(--accent3)"></span>3rd Year CGPA</label>
+      <input id="CGPA300" type="number" step="0.01" min="0" max="10" placeholder="e.g. 8.0"/>
+    </div>
+  </div>
+
+  <!-- Other Fields -->
+  <div class="form-grid">
+    <div class="field">
+      <label>Gender</label>
+      <div class="select-wrap">
+        <select id="Gender">
+          <option>Male</option>
+          <option>Female</option>
+          <option>Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Attendance %</label>
+      <input id="attendance" type="number" min="0" max="100" placeholder="e.g. 85"/>
+    </div>
+    <div class="field full">
+      <label>Daily Study Hours</label>
+      <input id="study_hours" type="number" step="0.5" min="0" max="24" placeholder="e.g. 4.5"/>
+    </div>
+  </div>
+
+  <button class="btn" id="predictBtn" onclick="predict(event)">
+    <span id="btn-text">Predict My CGPA →</span>
+  </button>
+
+  <div id="result">
+    <div class="result-inner">
+      <div class="result-title">Prediction Results</div>
+
+      <!-- Gauge -->
+      <div class="gauge-wrap">
+        <svg class="gauge-svg" width="160" height="100" viewBox="0 0 160 100">
+          <path class="gauge-track" d="M 24 88 A 56 56 0 0 1 136 88"/>
+          <path class="gauge-fill" id="gaugeFill" d="M 24 88 A 56 56 0 0 1 136 88" stroke="url(#gaugeGrad)"/>
+          <defs>
+            <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#6366f1"/>
+              <stop offset="100%" stop-color="#06b6d4"/>
+            </linearGradient>
+          </defs>
+          <text id="gaugeText" x="80" y="78" text-anchor="middle" fill="white" font-family="Syne,sans-serif" font-size="22" font-weight="800">--</text>
+          <text x="80" y="96" text-anchor="middle" fill="#8b90b8" font-family="DM Mono,monospace" font-size="9">PREDICTED CGPA</text>
+        </svg>
+      </div>
+
+      <div class="result-stats">
+        <div class="stat-box">
+          <div class="stat-label">Current SGPA</div>
+          <div class="stat-val" id="sgpa-val">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Predicted CGPA</div>
+          <div class="stat-val" id="cgpa-val">—</div>
+        </div>
+      </div>
+
+      <div class="suggestion-box">
+        <strong>💡 Suggestion</strong><br/>
+        <span id="suggestion-text">—</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="script.js"></script>
+</body>
+</html>
