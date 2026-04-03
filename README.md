@@ -8,7 +8,6 @@ A ball-by-ball machine learning model that predicts the **live win probability**
 
 This project builds a real-time win probability engine for IPL T20 matches. Given the current match state at any ball during the second innings — runs needed, balls remaining, wickets in hand, current run rate, required run rate, and player quality metrics — the model predicts whether the **batting (chasing) team will win**.
 
-The model was validated live during **CSK vs PBKS, IPL 2026** on April 3, 2026 — predicting a CSK win with **0.89 probability** at over 11.5 when PBKS were 127-3 chasing 210.
 
 ---
 
@@ -95,16 +94,6 @@ All features are computed **ball-by-ball** to simulate a real-time live predicto
 | XGBoost | Test | 0.7460 | 0.4122 | 0.7254 |
 | Ensemble (0.65/0.35) | Test | 0.7453 | 0.3947 | 0.7337 |
 
----
-
-## 🔮 Live Prediction — CSK vs PBKS, IPL 2026
-
-The model was tested **live in production** during a real IPL match on April 3, 2026.
-
-**Match state at over 11.5:**
-- PBKS 127-3, chasing 210
-- CRR: 10.73 | RRR: 10.16 | Balls remaining: 49 | Wickets remaining: 7
-
 ```python
 row = pd.DataFrame([{
     'batting_team': 'Punjab Kings',
@@ -125,8 +114,6 @@ row = pd.DataFrame([{
 }])
 ```
 
-**Model output:** CSK win probability = **0.89**
-> Despite PBKS being slightly ahead of the required rate, the model correctly identified the difficulty of chasing 210 at Chepauk in the middle overs with a fresh batsman at the crease.
 
 ---
 
