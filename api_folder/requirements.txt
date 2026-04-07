@@ -1,6 +1,0 @@
-fastapi==0.132.0
-uvicorn[standard]
-joblib==1.5.2
-scikit-learn
-pandas==3.0.1
-pydantic==2.12.5
