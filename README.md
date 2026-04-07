@@ -1,198 +1,359 @@
-# 🏏 IPL Live Win Probability Predictor
+# 🏏 IPL Live Win Predictor
 
-A ball-by-ball machine learning model that predicts the **live win probability** of the chasing team during IPL second innings — trained on **278,000+ deliveries** from **IPL 2008 to 2025**.
+> Ball-by-ball win probability engine for IPL second innings — powered by an ensemble of Logistic Regression, XGBoost, and CatBoost trained on **279,587 deliveries** from **IPL 2008–2026**.
+
+![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-green?logo=fastapi)
+![Streamlit](https://img.shields.io/badge/Streamlit-1.35+-red?logo=streamlit)
+![XGBoost](https://img.shields.io/badge/XGBoost-2.0+-orange)
+![CatBoost](https://img.shields.io/badge/CatBoost-1.2+-yellow)
+![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
 ---
 
-## 📌 Project Overview
+## 📸 Demo
 
-This project builds a real-time win probability engine for IPL T20 matches. Given the current match state at any ball during the second innings — runs needed, balls remaining, wickets in hand, current run rate, required run rate, and player quality metrics — the model predicts whether the **batting (chasing) team will win**.
+```
+Batting Team  ──────────────────────────────────  Bowling Team
+    CSK   50 runs | 30 balls | 7 wickets left    RCB
+         CRR: 8.12  |  RRR: 10.00  |  Pressure: +1.88
+         Phase: Death Overs
 
+  🏆 Predicted Winner: RCB  —  88.5% Win Probability
+```
 
 ---
 
-## 📂 Dataset
+## 📌 What This Project Does
 
-| Source | Description |
-|--------|-------------|
-| `IPL_ball_by_ball_updated.csv` | IPL 2008–2022 ball-by-ball data |
-| `deliveries_updated_ipl_upto_2025.csv` | IPL 2024–2025 ball-by-ball data |
+Given any live ball-by-ball situation during the IPL second innings, the system predicts **who is going to win** — along with precise win probabilities from three individual ML models and a weighted ensemble.
 
-- **Combined size:** 278,203 deliveries across 17 seasons
-- **Source:** [Kaggle — dgsports/ipl-ball-by-ball-2008-to-2022](https://www.kaggle.com/datasets/dgsports/ipl-ball-by-ball-2008-to-2022)
-- Teams standardized for rebrands: Delhi Daredevils → Delhi Capitals, Kings XI Punjab → Punjab Kings, Royal Challengers Bangalore → Royal Challengers Bengaluru
+Users input:
+- Both teams (batting + bowling)
+- Venue
+- Runs to win, balls remaining, wickets in hand
+- First innings total
+
+The system auto-computes CRR, RRR, pressure index, match phase, and historical team performance, then returns probability outputs from all models instantly via a **FastAPI backend** and a **Streamlit frontend**.
+
+---
+
+## 🏗️ Architecture
+
+```
+┌──────────────────────────────────┐
+│         Streamlit UI             │  ← main.py
+│  (Live match input + visualizer) │
+└──────────────┬───────────────────┘
+               │ HTTP POST /predict
+               ▼
+┌──────────────────────────────────┐
+│         FastAPI Backend          │  ← app.py
+│  (Feature computation + routing) │
+└──────────────┬───────────────────┘
+               │
+       ┌───────┴────────┐
+       ▼                ▼
+  ipl_win_predictor.pkl (joblib bundle)
+  ├── preprocessor     (sklearn ColumnTransformer)
+  ├── lr_model         (Logistic Regression)
+  ├── xgb_model        (XGBoost)
+  ├── cat_model        (CatBoost)
+  └── match_results    (historical team win rates)
+```
+
+---
+
+## 📂 Project Structure
+
+```
+ipl-win-predictor/
+│
+├── app.py                        # FastAPI backend (prediction API)
+├── main.py                       # Streamlit frontend (UI)
+├── ipl_win_predictor.pkl         # Trained model bundle (joblib)
+├── requirements.txt
+├── README.md
+│
+└── notebook/
+    └── IPL_Win_Predictor.ipynb   # Full training pipeline (Google Colab)
+```
+
+---
+
+## 📦 Dataset
+
+| File | Season Coverage | Rows |
+|------|----------------|------|
+| `IPL_ball_by_ball_updated.csv` | 2008–2022 | ~230K |
+| `deliveries_updated_ipl_upto_2025.csv` | up to 2025 | ~48K |
+| `ipl_2024_deliveries.csv` | 2024 | ~17K |
+| `ipl_2025_deliveries.csv` | 2025 | ~18K |
+| `ipl_2026_deliveries.csv` | 2026 (partial) | ~1.4K |
+
+**Sources:** [dgsports/ipl-ball-by-ball-2008-to-2022](https://www.kaggle.com/datasets/dgsports/ipl-ball-by-ball-2008-to-2022) · [sahiltailor/ipl-2024-ball-by-ball-dataset](https://www.kaggle.com/datasets/sahiltailor/ipl-2024-ball-by-ball-dataset)
+
+**Total after merging & filtering:** `131,902` second-innings rows used for training and evaluation.
+
+**Team standardization handled:**
+```
+Delhi Daredevils       → DC
+Kings XI Punjab        → PBKS
+Royal Challengers Bangalore → RCB
+Rising Pune Supergiant → RPS
+```
 
 ---
 
 ## ⚙️ Feature Engineering
 
-All features are computed **ball-by-ball** to simulate a real-time live predictor. Future data leakage is prevented by using **cumsum-then-shift** for all career statistics.
+All features are computed **ball-by-ball** to simulate real-time prediction. No future data leakage — all career stats use **cumsum → shift(1)** pattern.
 
-### Match State Features
-| Feature | Description |
-|---------|-------------|
-| `runs_to_win` | Runs still needed to win |
-| `balls_remaining` | Legal deliveries left in the innings |
-| `wickets_remaining` | Wickets in hand (10 - wickets fallen) |
-| `curr_run_rate` | Current run rate at that ball |
-| `req_run_rate` | Required run rate to win |
-| `crr_rrr_ratio` | CRR / RRR — above 1.0 means batting team is ahead |
+### Match-State Features (computed live)
+
+| Feature | Formula / Description |
+|---|---|
+| `runs_to_win` | Target − runs scored so far |
+| `balls_remaining` | 120 − balls bowled |
+| `wickets_remaining` | 10 − wickets fallen |
+| `curr_run_rate` | (team_runs × 6) / balls_bowled |
+| `req_run_rate` | (runs_to_win × 6) / balls_remaining, capped at 36 |
+| `crr_rrr_ratio` | CRR / RRR, clipped [0, 10] — >1.0 = batting team ahead |
 | `pressure` | RRR − CRR — positive = under pressure |
-| `first_innings_total` | Total set by the first innings |
-| `match_phase` | 0 = Powerplay (0–5), 1 = Middle (6–14), 2 = Death (15–19) |
+| `match_phase` | 0=Powerplay (0–5), 1=Middle (6–14), 2=Death (15–19) |
+| `first_innings_total` | Total set by batting-first team |
 
-### Player Quality Features (Leak-Free Career Stats)
+### Historical Team Performance Features (leak-free)
+
 | Feature | Description |
-|---------|-------------|
-| `batting_average` | Lagged career batting average (Bayesian smoothed, +50 runs / +2 outs) |
-| `career_strike_rate` | Lagged career strike rate (smoothed, +100 runs / +80 balls) |
-| `exp_bowler_eco` | Bowler's career economy rate (smoothed, +300 runs / +240 balls) |
-| `exp_bowler_avg` | Bowler's career bowling average (smoothed, +300 runs / +10 wickets) |
+|---|---|
+| `batting_team_perf` | Expanding win rate of batting team as chaser (shifted by 1 match) |
+| `bowling_team_perf` | Expanding win rate of bowling team as defender (shifted by 1 match) |
 
-> **Note:** All career stats are computed as season-by-season aggregates with a one-season lag — ensuring the model never sees future information.
+### Player Quality Features (Bayesian-Smoothed, leak-free)
+
+| Feature | Smoothing Formula |
+|---|---|
+| `batting_average` | (career_runs + 50) / (career_outs + 2) |
+| `career_strike_rate` | ((career_runs + 100) / (career_balls + 80)) × 100 |
+| `exp_bowler_eco` | ((career_runs_conceded + 300) / (career_balls_bowled + 240)) × 6 |
+| `exp_bowler_avg` | (career_runs_conceded + 300) / (career_wickets + 10) |
+
+> All career stats are aggregated season-by-season with a **one-season lag** — the model only sees what was known *before* the current season started.
 
 ---
 
 ## 🧠 Models
 
-### 1. Logistic Regression (Baseline)
-- Preprocessing: `OneHotEncoder` for team names + `StandardScaler` for numeric features
-- Regularization: `C=0.001` (strong L2)
-- Solver: `liblinear`
+### Preprocessing Pipeline
+```
+Categorical (batting_team, bowling_team, venue) → OneHotEncoder(drop='first', handle_unknown='ignore')
+Numeric (9 features)                            → StandardScaler
+```
+
+### 1. Logistic Regression
+```python
+LogisticRegression(C=0.01, class_weight='balanced', solver='liblinear', max_iter=1000)
+```
+Strong L2 regularization. Used as the conservative baseline.
 
 ### 2. XGBoost Classifier
-- `n_estimators=200`, `max_depth=3`, `learning_rate=0.05`
-- `subsample=0.7`, `colsample_bytree=0.7`
-- Regularization: `reg_lambda=5`, `reg_alpha=1`, `gamma=1`
-- Dropped high-cardinality columns (`striker`, `non_striker`, `bowler`, `venue`) to reduce overfitting
+```python
+XGBClassifier(
+    n_estimators=300, max_depth=3, learning_rate=0.05,
+    subsample=0.6, colsample_bytree=0.6,
+    reg_lambda=10, reg_alpha=2, min_child_weight=30, gamma=2,
+    scale_pos_weight=neg/pos, early_stopping_rounds=30
+)
+```
+Heavily regularized to prevent overfitting on ball-by-ball data.
 
-### 3. Weighted Ensemble
-- `0.65 × XGBoost + 0.35 × Logistic Regression`
+### 3. CatBoost Classifier
+```python
+CatBoostClassifier(
+    iterations=150, depth=3, learning_rate=0.02,
+    l2_leaf_reg=50, random_strength=10, bagging_temperature=2,
+    cat_features=['batting_team', 'bowling_team', 'venue']
+)
+```
+Handles categorical features natively — no one-hot encoding needed.
+
+### 4. Ensemble (Final Output)
+```
+Ensemble = 0.50 × XGBoost + 0.30 × CatBoost + 0.20 × Logistic Regression
+```
 
 ---
 
 ## 📊 Results
 
-### Train / CV / Test Split (Temporal)
+### Temporal Train / Test Split
 | Split | Seasons | Rows |
-|-------|---------|------|
-| Train | 2008–2021 | ~87,000 |
-| CV | 2022–2023 | ~15,000 |
-| Test | 2024–2025 | ~15,000 |
+|---|---|---|
+| Train | 2008–2023 | ~115,266 |
+| Test | 2024–2026 | ~16,636 |
 
-> Temporal split is used intentionally — **no random shuffling** — to simulate real-world deployment where the model predicts future seasons from past data.
+> No random shuffling. Strict temporal split simulates real-world deployment.
 
-### Performance Summary
+### Test Set Performance
 
-| Model | Split | Accuracy | F1 | AUC |
-|-------|-------|----------|----|-----|
-| Logistic Regression | Train | 0.7396 | 0.4016 | 0.7818 |
-| Logistic Regression | CV | 0.8098 | 0.3465 | 0.7901 |
-| Logistic Regression | Test | 0.7339 | 0.3528 | 0.7277 |
-| XGBoost | Train | 0.7923 | 0.5524 | 0.8589 |
-| XGBoost | CV | 0.8162 | 0.4100 | 0.7763 |
-| XGBoost | Test | 0.7460 | 0.4122 | 0.7254 |
-| Ensemble (0.65/0.35) | Test | 0.7453 | 0.3947 | 0.7337 |
+| Model | Accuracy | F1 | ROC-AUC | Log Loss | Brier |
+|---|---|---|---|---|---|
+| Logistic Regression | 0.7584 | 0.7233 | 0.8573 | 0.5039 | 0.1636 |
+| XGBoost | **0.8077** | 0.7838 | **0.8956** | **0.4355** | **0.1395** |
+| CatBoost | 0.7983 | 0.7751 | 0.8814 | 0.4648 | 0.1478 |
+| **Ensemble** | **~0.808** | **~0.785** | **~0.896** | — | — |
 
-```python
-row = pd.DataFrame([{
-    'batting_team': 'Punjab Kings',
-    'bowling_team': 'Chennai Super Kings',
-    'runs_to_win': 83,
-    'curr_run_rate': 10.73,
-    'req_run_rate': 10.16,
-    'crr_rrr_ratio': 1.0561,
-    'balls_remaining': 49,
-    'wickets_remaining': 7,
-    'batting_average': 24.0,
-    'career_strike_rate': 125.0,
-    'exp_bowler_eco': 12.0,
-    'exp_bowler_avg': 27.0,
-    'pressure': -0.57,
-    'first_innings_total': 209,
-    'match_phase': 1
-}])
-```
-
+> XGBoost leads on AUC (0.896) on unseen 2024–26 data — strong generalization given the strict temporal split.
 
 ---
 
 ## 🚀 How to Run
 
-### 1. Install Dependencies
+### 1. Clone & Install
 ```bash
-pip install numpy pandas scikit-learn xgboost matplotlib seaborn kagglehub
+git clone https://github.com/yourusername/ipl-win-predictor.git
+cd ipl-win-predictor
+pip install -r requirements.txt
 ```
 
-### 2. Load Data
-```python
-import kagglehub
-from kagglehub import KaggleDatasetAdapter
+### 2. Get the Model Bundle
+Train it yourself by running the notebook in Google Colab, or download `ipl_win_predictor.pkl` and place it in the root directory.
 
-df = kagglehub.load_dataset(
-    KaggleDatasetAdapter.PANDAS,
-    "dgsports/ipl-ball-by-ball-2008-to-2022",
-    "IPL_ball_by_ball_updated.csv"
-)
+### 3. Start the FastAPI Backend
+```bash
+uvicorn app:app --host 127.0.0.1 --port 8000
 ```
+API docs available at: `http://127.0.0.1:8000/docs`
 
-### 3. Run the Notebook
-Open `IPL_Win_Predictor.ipynb` in Jupyter or Google Colab and run all cells top to bottom.
+### 4. Launch the Streamlit UI
+```bash
+streamlit run main.py
+```
+Open: `http://localhost:8501`
 
-### 4. Make a Live Prediction
-```python
-row = pd.DataFrame([{
-    'batting_team': 'Mumbai Indians',
-    'bowling_team': 'Chennai Super Kings',
-    'runs_to_win': 48,
-    'curr_run_rate': 8.5,
-    'req_run_rate': 9.6,
-    'crr_rrr_ratio': 0.88,
-    'balls_remaining': 30,
-    'wickets_remaining': 7,
-    'batting_average': 28,
-    'career_strike_rate': 140,
-    'exp_bowler_eco': 7.2,
-    'exp_bowler_avg': 26,
-    'pressure': 1.1,
-    'first_innings_total': 170,
-    'match_phase': 2
-}])
-
-pred = xgb_pipe.predict(row)
-prob = xgb_pipe.predict_proba(row)
-print(f"Win probability: {prob[0][1]:.2%}")
+### 5. Or Call the API Directly
+```bash
+curl -X POST "http://127.0.0.1:8000/predict" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "batting_team": "CSK",
+       "bowling_team": "RCB",
+       "venue": "m_chinnaswamy_stadium",
+       "runs_to_win": 50,
+       "balls_remaining": 30,
+       "wickets_remaining": 7,
+       "first_inning_total": 180
+     }'
 ```
 
 ---
 
-## 📁 Project Structure
+## 🔌 API Reference
 
+### `POST /predict`
+
+**Request Body:**
+
+| Field | Type | Description |
+|---|---|---|
+| `batting_team` | string | Team code e.g. `"CSK"` |
+| `bowling_team` | string | Team code e.g. `"RCB"` |
+| `venue` | string | Venue slug e.g. `"m_chinnaswamy_stadium"` |
+| `runs_to_win` | int | Runs still needed |
+| `balls_remaining` | int | Balls left in innings |
+| `wickets_remaining` | int | Wickets in hand |
+| `first_inning_total` | int | 1st innings total |
+
+**Response:**
+
+```json
+{
+  "input_state": { "batting_team": "CSK", "curr_run_rate": 9.6, ... },
+  "logistic_regression": {
+    "batting_team_win": 0.38,
+    "bowling_team_win": 0.62,
+    "predicted_winner": "RCB"
+  },
+  "xgboost": { ... },
+  "catboost": { ... },
+  "ensemble": { ... }
+}
 ```
-ipl-win-predictor/
-│
-├── IPL_Win_Predictor.ipynb     # Main notebook
-├── README.md                   # This file
-│
-├── data/
-│   ├── IPL_ball_by_ball_updated.csv
-│   └── deliveries_updated_ipl_upto_2025.csv
-│
-└── models/
-    ├── logistic_regression_pipe.pkl
-    └── xgboost_pipe.pkl
-```
+
+### `GET /`
+Health check.
+
+### `GET /about`
+Model and version info.
 
 ---
 
-## 🔧 Known Limitations & Future Work
+## 🏟️ Supported Venues (40 total)
 
-- **Class imbalance:** Batting team wins only ~27% of balls in dataset. Adding `class_weight='balanced'` or SMOTE would improve minority class recall.
-- **Venue effect:** 34,000 venue nulls in 2024–25 data meant venue was dropped. Home advantage is significant in IPL and could improve predictions.
-- **No hyperparameter tuning:** Manual parameter selection used. Optuna or GridSearchCV could push AUC higher.
-- **No probability calibration:** XGBoost probabilities may be overconfident. Platt scaling or isotonic regression calibration is a planned improvement.
-- **Player form:** Career stats used instead of rolling form windows (last 10 innings). Short-term form matters in T20.
+<details>
+<summary>Click to expand full venue list</summary>
+
+| Display Name | Slug |
+|---|---|
+| M Chinnaswamy Stadium | `m_chinnaswamy_stadium` |
+| Wankhede Stadium | `wankhede_stadium` |
+| Eden Gardens | `eden_gardens` |
+| Narendra Modi Stadium | `narendra_modi_stadium` |
+| MA Chidambaram Stadium | `ma_chidambaram_stadium` |
+| Arun Jaitley Stadium | `arun_jaitley_stadium` |
+| Rajiv Gandhi International Stadium | `rajiv_gandhi_international_stadium` |
+| Sawai Mansingh Stadium | `sawai_mansingh_stadium` |
+| Punjab Cricket Association IS Bindra Stadium | `punjab_cricket_association_is_bindra_stadium` |
+| ... (31 more) | — |
+
+</details>
 
 ---
 
-This project is for educational and portfolio purposes. Dataset credit: [dgsports on Kaggle](https://www.kaggle.com/datasets/dgsports/ipl-ball-by-ball-2008-to-2022).
+## 🏢 Supported Teams (10 active)
+
+| Code | Team |
+|---|---|
+| CSK | Chennai Super Kings |
+| MI | Mumbai Indians |
+| RCB | Royal Challengers Bengaluru |
+| KKR | Kolkata Knight Riders |
+| SRH | Sunrisers Hyderabad |
+| DC | Delhi Capitals |
+| PBKS | Punjab Kings |
+| RR | Rajasthan Royals |
+| GT | Gujarat Titans |
+| LSG | Lucknow Super Giants |
+
+---
+
+## ⚠️ Known Limitations
+
+- **Venue nulls in 2024–25 raw data** — venue was merged from additional source datasets; unknown venues fall back to zero-vector encoding.
+- **No probability calibration** — XGBoost and CatBoost probabilities may be overconfident. Platt scaling / isotonic regression is a planned improvement.
+- **Player features not used at inference time** — `batting_average`, `career_strike_rate`, `exp_bowler_eco`, `exp_bowler_avg` are trained on but the API does not currently accept per-ball player inputs. Team-level features dominate inference.
+- **Retired/defunct teams** — DC Old (Deccan Chargers), KTK, PWI, GL are not supported in the inference UI.
+- **Super Overs not handled** — any `inning > 2` rows are dropped during training.
+
+---
+
+## 🛣️ Roadmap
+
+- [ ] Probability calibration (Platt Scaling / Isotonic Regression)
+- [ ] Per-ball player stat input at inference
+- [ ] Win probability chart across the innings (chart history)
+- [ ] Docker deployment
+- [ ] Live data ingestion (Cricbuzz / Cricinfo scraper)
+- [ ] SHAP feature importance explanations in UI
+
+---
+
+## 🙏 Credits
+
+- Dataset: [dgsports](https://www.kaggle.com/datasets/dgsports/ipl-ball-by-ball-2008-to-2022) and [sahiltailor](https://www.kaggle.com/datasets/sahiltailor/ipl-2024-ball-by-ball-dataset) on Kaggle
+- Built with: scikit-learn, XGBoost, CatBoost, FastAPI, Streamlit, Pydantic
+
+---
+
+*For educational and portfolio purposes only. Not affiliated with BCCI or IPL.*
