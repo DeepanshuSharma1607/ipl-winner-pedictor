@@ -182,7 +182,6 @@ def predict(state: IPLMatchState):
         "bowling_team_perf": state.bowling_team_perf,
     }
 
-    # Rename to match training column name
     input_df = pd.DataFrame([input_dict]).rename(
         columns={"first_inning_total": "first_innings_total"}
     )
@@ -202,7 +201,6 @@ def predict(state: IPLMatchState):
 
     ens_prob = 0.5 * xgb_prob + 0.3 * cat_prob + 0.2 * lr_prob
 
-    # ── Build response ────────────────────────────────────────────────────────
     bt, bwt = state.batting_team, state.bowling_team
     return PredictionResponse(
         input_state={
