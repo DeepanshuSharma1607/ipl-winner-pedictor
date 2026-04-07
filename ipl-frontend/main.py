@@ -1,7 +1,7 @@
 import streamlit as st
 import requests
 
-# ── Page config (must be first Streamlit call) ─────────────────────────────
+
 st.set_page_config(
     page_title="IPL Win Predictor",
     page_icon="🏏",
@@ -11,7 +11,6 @@ st.set_page_config(
 
 API_URL = "http://127.0.0.1:8000/predict"
 
-# ── Venue mapping: Display Name → model slug ───────────────────────────────
 VENUES_DISPLAY = [
     "M Chinnaswamy Stadium",
     "Punjab Cricket Association IS Bindra Stadium",
@@ -68,7 +67,6 @@ def venue_to_slug(display_name: str) -> str:
 
 VENUE_SLUG_MAP = {v: venue_to_slug(v) for v in VENUES_DISPLAY}
 
-# ── IPL team metadata ──────────────────────────────────────────────────────
 TEAMS = {
     "CSK": {"name": "Chennai Super Kings", "color": "#FFCC00", "bg": "#1a1200", "emoji": "🦁"},
     "MI": {"name": "Mumbai Indians", "color": "#005EA6", "bg": "#001529", "emoji": "🔵"},
@@ -82,7 +80,6 @@ TEAMS = {
     "LSG": {"name": "Lucknow Super Giants", "color": "#00B2A9", "bg": "#001a19", "emoji": "🔵"},
 }
 
-# ── Custom CSS ─────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap');
@@ -341,7 +338,7 @@ hr { border-color: rgba(255,255,255,0.07) !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Hero ───────────────────────────────────────────────────────────────────
+
 st.markdown("""
 <div class="hero-header">
     <p class="hero-sub">Ball · by · Ball · Intelligence</p>
@@ -351,7 +348,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# ── Helper: compute live stats (mirrors FastAPI computed_field) ─────────────
 def compute_live_stats(runs_to_win, balls_remaining, first_inning_total):
     balls_bowled = 120 - balls_remaining
     team_runs = (first_inning_total + 1) - runs_to_win
@@ -368,7 +364,6 @@ def compute_live_stats(runs_to_win, balls_remaining, first_inning_total):
     return crr, rrr, pressure, phase_label, phase_color
 
 
-# ── Win bar helper ──────────────────────────────────────────────────────────
 def win_bar(team, pct, color, is_winner=False):
     bold = "font-weight:700;" if is_winner else ""
     trophy = " 🏆" if is_winner else ""
@@ -385,7 +380,6 @@ def win_bar(team, pct, color, is_winner=False):
     """
 
 
-# ── Model result card ───────────────────────────────────────────────────────
 def model_card(cls, label, model_data, bat_team, bowl_team, bat_color, bowl_color):
     bat_win = model_data["batting_team_win"]
     bowl_win = model_data["bowling_team_win"]
@@ -408,7 +402,6 @@ col_input, col_result = st.columns([1, 1.2], gap="large")
 with col_input:
     st.markdown('<div class="section-label">⚡ Match Setup</div>', unsafe_allow_html=True)
 
-    # ── Team selectors ──────────────────────────────────────────────────────
     team_list = list(TEAMS.keys())
 
     bat_col, bowl_col = st.columns(2)
@@ -453,7 +446,6 @@ with col_input:
 
     st.markdown("---")
 
-    # ── Venue ───────────────────────────────────────────────────────────────
     st.markdown('<div class="section-label">📍 Venue</div>', unsafe_allow_html=True)
     venue_display = st.selectbox("Select Stadium", VENUES_DISPLAY, index=0, label_visibility="collapsed")
     venue_slug = VENUE_SLUG_MAP[venue_display]
@@ -467,7 +459,6 @@ with col_input:
 
     st.markdown("---")
 
-    # ── Match situation ─────────────────────────────────────────────────────
     st.markdown('<div class="section-label">📊 Live Situation</div>', unsafe_allow_html=True)
 
     sit1, sit2 = st.columns(2)
@@ -562,7 +553,6 @@ with col_result:
                         win_color = bat_color if winner == batting_team else bowl_color
                         win_team = TEAMS[winner]
 
-                        # ── Ensemble winner banner ──────────────────────────
                         st.markdown(f"""
                         <div class="winner-banner"
                              style="border-color:{win_color}44;
@@ -577,7 +567,6 @@ with col_result:
                         </div>
                         """, unsafe_allow_html=True)
 
-                        # ── Ensemble bar (big) ──────────────────────────────
                         st.markdown(f"""
                         <div class="glass-card">
                             <div class="section-label">Ensemble (XGB 50% · CatBoost 30% · LR 20%)</div>
@@ -586,7 +575,6 @@ with col_result:
                         </div>
                         """, unsafe_allow_html=True)
 
-                        # ── Individual models ───────────────────────────────
                         st.markdown('<div class="section-label" style="margin-top:0.5rem">Individual Models</div>',
                                     unsafe_allow_html=True)
 
@@ -598,7 +586,6 @@ with col_result:
                         model_card("ens", "Ensemble (Final)", data["ensemble"], batting_team, bowling_team, bat_color,
                                    bowl_color)
 
-                        # ── Computed state debug ────────────────────────────
                         with st.expander("🔬 Full feature state sent to API"):
                             state = data.get("input_state", {})
                             rows = ""
@@ -635,7 +622,6 @@ with col_result:
                 except Exception as e:
                     st.markdown(f'<div class="warn-box">⚠️ Unexpected error: {e}</div>', unsafe_allow_html=True)
 
-# ── Footer ─────────────────────────────────────────────────────────────────
 st.markdown("""
 <div style="text-align:center;margin-top:3rem;padding-top:1.5rem;
      border-top:1px solid rgba(255,255,255,0.06);
