@@ -2,12 +2,36 @@
 
 > Ball-by-ball win probability engine for IPL second innings — powered by an ensemble of Logistic Regression, XGBoost, and CatBoost trained on **279,587 deliveries** from **IPL 2008–2026**.
 
-![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-green?logo=fastapi)
+![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.111-green?logo=fastapi)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.35+-red?logo=streamlit)
 ![XGBoost](https://img.shields.io/badge/XGBoost-2.0+-orange)
 ![CatBoost](https://img.shields.io/badge/CatBoost-1.2+-yellow)
 ![License](https://img.shields.io/badge/License-MIT-lightgrey)
+![Status](https://img.shields.io/badge/Status-Live-brightgreen)
+
+---
+
+## 🌐 Live Demo
+
+| Service | URL |
+|---|---|
+| 🎯 Streamlit App | [ipl-winner-pedictor.streamlit.app](https://live-ipl-win-predictor.streamlit.app/) |
+| ⚡ FastAPI Backend | [ipl-winner-pedictor.onrender.com](https://ipl-winner-pedictor.onrender.com) |
+| 📖 API Docs (Swagger) | [ipl-winner-pedictor.onrender.com/docs](https://ipl-winner-pedictor.onrender.com/docs) |
+
+---
+
+## ⚠️ Important — Please Read Before Using
+
+This app is hosted on **Render's free tier**. Here's what to expect:
+
+- 💤 If the app hasn't been used for **15+ minutes**, both the frontend and backend go to **sleep**
+- ⏳ On first visit, the app may take **30–60 seconds to wake up** — this is normal
+- 🔄 If you see an error or blank screen, **wait 30 seconds and refresh**
+- ✅ After the first request, everything works instantly
+
+> **Why does this happen?** Free hosting services spin down idle apps to save resources. The first request wakes them back up.
 
 ---
 
@@ -69,14 +93,17 @@ The system auto-computes CRR, RRR, pressure index, match phase, and historical t
 ```
 ipl-win-predictor/
 │
-├── app.py                        # FastAPI backend (prediction API)
-├── main.py                       # Streamlit frontend (UI)
-├── ipl_win_predictor.pkl         # Trained model bundle (joblib)
-├── requirements.txt
-├── README.md
+├── backend/
+│   ├── app.py                      # FastAPI backend (prediction API)
+│   ├── ipl_win_predictor.pkl       # Trained model bundle (joblib)
+│   ├── requirements.txt
+│   └── runtime.txt                 # Python 3.11.9
+│
+├── frontend/
+│   └── main.py                     # Streamlit frontend (UI)
 │
 └── notebook/
-    └── IPL_Win_Predictor.ipynb   # Full training pipeline (Google Colab)
+    └── IPL_Win_Predictor.ipynb     # Full training pipeline (Google Colab)
 ```
 
 ---
@@ -97,10 +124,10 @@ ipl-win-predictor/
 
 **Team standardization handled:**
 ```
-Delhi Daredevils       → DC
-Kings XI Punjab        → PBKS
+Delhi Daredevils            → DC
+Kings XI Punjab             → PBKS
 Royal Challengers Bangalore → RCB
-Rising Pune Supergiant → RPS
+Rising Pune Supergiant      → RPS
 ```
 
 ---
@@ -208,31 +235,30 @@ Ensemble = 0.50 × XGBoost + 0.30 × CatBoost + 0.20 × Logistic Regression
 
 ---
 
-## 🚀 How to Run
+## 🚀 How to Run Locally
 
 ### 1. Clone & Install
 ```bash
-git clone https://github.com/yourusername/ipl-win-predictor.git
-cd ipl-win-predictor
-pip install -r requirements.txt
+git clone https://github.com/DeepanshuSharma1607/ipl-winner-pedictor.git
+cd ipl-winner-pedictor
+pip install -r backend/requirements.txt
 ```
 
-### 2. Get the Model Bundle
-Train it yourself by running the notebook in Google Colab, or download `ipl_win_predictor.pkl` and place it in the root directory.
-
-### 3. Start the FastAPI Backend
+### 2. Start the FastAPI Backend
 ```bash
+cd backend
 uvicorn app:app --host 127.0.0.1 --port 8000
 ```
 API docs available at: `http://127.0.0.1:8000/docs`
 
-### 4. Launch the Streamlit UI
+### 3. Launch the Streamlit UI
 ```bash
+cd frontend
 streamlit run main.py
 ```
 Open: `http://localhost:8501`
 
-### 5. Or Call the API Directly
+### 4. Or Call the API Directly
 ```bash
 curl -X POST "http://127.0.0.1:8000/predict" \
      -H "Content-Type: application/json" \
@@ -269,20 +295,20 @@ curl -X POST "http://127.0.0.1:8000/predict" \
 
 ```json
 {
-  "input_state": { "batting_team": "CSK", "curr_run_rate": 9.6, ... },
+  "input_state": { "batting_team": "CSK", "curr_run_rate": 9.6, "..." : "..." },
   "logistic_regression": {
     "batting_team_win": 0.38,
     "bowling_team_win": 0.62,
     "predicted_winner": "RCB"
   },
-  "xgboost": { ... },
-  "catboost": { ... },
-  "ensemble": { ... }
+  "xgboost": { "...": "..." },
+  "catboost": { "...": "..." },
+  "ensemble": { "...": "..." }
 }
 ```
 
 ### `GET /`
-Health check.
+Health check — returns `{"status": "ok"}`.
 
 ### `GET /about`
 Model and version info.
@@ -328,6 +354,26 @@ Model and version info.
 
 ---
 
+## 🖥️ Deployment
+
+| Component | Platform | Plan |
+|---|---|---|
+| FastAPI Backend | Render | Free |
+| Streamlit Frontend | Streamlit Cloud | Free |
+| Python Version | 3.11.9 | — |
+
+### Free Tier Limitations
+| Resource | Limit |
+|---|---|
+| RAM | 512 MB |
+| CPU | 0.1 vCPU |
+| Comfortable concurrent users | 3–5 |
+| Requests/minute | ~20–30 |
+| Idle sleep after | 15 minutes |
+| Cold start time | 30–60 seconds |
+
+---
+
 ## ⚠️ Known Limitations
 
 - **Venue nulls in 2024–25 raw data** — venue was merged from additional source datasets; unknown venues fall back to zero-vector encoding.
@@ -346,6 +392,7 @@ Model and version info.
 - [ ] Docker deployment
 - [ ] Live data ingestion (Cricbuzz / Cricinfo scraper)
 - [ ] SHAP feature importance explanations in UI
+- [ ] Upgrade to paid hosting to eliminate cold start delays
 
 ---
 
