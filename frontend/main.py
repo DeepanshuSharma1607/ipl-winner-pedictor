@@ -9,7 +9,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-API_URL = "https://ipl-winner-pedictor.onrender.com"
+API_URL = "https://ipl-winner-pedictor.onrender.com/predict"
 
 VENUES_DISPLAY = [
     "M Chinnaswamy Stadium",
